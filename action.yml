@@ -4,6 +4,10 @@ inputs:
   satis-config-path:
     description: 'Path to Satis repository config file'
     default: 'satis.json'
+    
+  s3-satis-version-tag:
+    description: 'Docker tag to use'
+    default: 'v0'
 
   repository-url:
     required: false
@@ -23,6 +27,11 @@ inputs:
     description: Do you want to use data from cache directory?
     default: false
     
+  fresh:
+    type: boolean
+    description: Do you want fully recreate repository from scratch?
+    default: false
+    
   cache-path:
     description: 'Cache directory path'
     default: 'satis-cache'
@@ -37,7 +46,7 @@ inputs:
     
   s3-region:
     description: 'S3 Region'
-    required: true
+    default: 'us-east-1'
     
   s3-bucket:
     description: 'S3 Bucket'
@@ -45,7 +54,11 @@ inputs:
     
   s3-endpoint:
     description: 'S3 Endpoint'
-    required: true
+    required: false
+    
+  s3-use-path-style-endpoint:
+    description: 'S3 Use path style endpoints'
+    default: false
     
 runs:
   using: "composite"
@@ -57,13 +70,15 @@ runs:
           --volume "${PWD}/${{ inputs.satis-config-path }}:/usr/src/satis/satis.json" \
           --volume "${PWD}/${{ inputs.cache-path }}/:/usr/src/satis/satis-cache/" \
           --volume "${COMPOSER_HOME:-$HOME/.composer}:/root/.composer/" \
-          --env AWS_ACCESS_KEY_ID=${{ inputs.s3-access-key-id }} \
-          --env AWS_SECRET_ACCESS_KEY=${{ inputs.s3-secret-access-key }} \
-          --env AWS_DEFAULT_REGION=${{ inputs.s3-region }} \
-          --env AWS_BUCKET=${{ inputs.s3-bucket }} \
-          --env AWS_ENDPOINT=${{ inputs.s3-endpoint }} \
-          ghcr.io/kduma-oss/s3-satis:latest build \
+          --env S3_ACCESS_KEY_ID=${{ inputs.s3-access-key-id }} \
+          --env S3_SECRET_ACCESS_KEY=${{ inputs.s3-secret-access-key }} \
+          --env S3_REGION=${{ inputs.s3-region }} \
+          --env S3_BUCKET=${{ inputs.s3-bucket }} \
+          ${{ inputs.s3-endpoint != '' && format('--env S3_ENDPOINT="{0}"', inputs.s3-endpoint) || '' }} \
+          --env S3_USE_PATH_STYLE_ENDPOINT=${{ inputs.s3-use-path-style-endpoint }} \
+          ghcr.io/kduma-oss/s3-satis:${{ inputs.s3-satis-version-tag }} build \
+          ${{ inputs.fresh == 'true' && '--fresh' || '' }} \
           ${{ inputs.verbosity == 'verbose' && '-v' || '' }} \
           ${{ inputs.verbosity == 'very_verbose' && '-vvv' || '' }} \
-          ${{ inputs.use-cache == false && '--set-extension=cache:enabled=false' || '--set-extension=cache:path=/usr/src/satis/satis-cache/'}} \
+          ${{ inputs.use-cache == 'true' && '--set-extension=cache:path=/usr/src/satis/satis-cache/' || '--set-extension=cache:enabled=false'}} \
           ${{ inputs.repository-url != '' && format('--repository-url="{0}"', inputs.repository-url) || '' }}
