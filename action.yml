@@ -1,0 +1,69 @@
+name: 'S3-Satis'
+description: 'Build Satis Composer repository on S3'
+inputs:
+  satis-config-path:
+    description: 'Path to Satis repository config file'
+    default: 'satis.json'
+
+  repository-url:
+    required: false
+    description: URL of repository to update
+    
+  verbosity:
+    type: choice
+    description: Verbose Level
+    default: 'normal'
+    options: 
+    - normal
+    - verbose
+    - very_verbose
+    
+  use-cache:
+    type: boolean
+    description: Do you want to use data from cache directory?
+    default: false
+    
+  cache-path:
+    description: 'Cache directory path'
+    default: 'satis-cache'
+    
+  s3-access-key-id:
+    description: 'S3 Access Key Id'
+    required: true
+    
+  s3-secret-access-key:
+    description: 'S3 Secret Access Key'
+    required: true
+    
+  s3-region:
+    description: 'S3 Region'
+    required: true
+    
+  s3-bucket:
+    description: 'S3 Bucket'
+    required: true
+    
+  s3-endpoint:
+    description: 'S3 Endpoint'
+    required: true
+    
+runs:
+  using: "composite"
+  steps:
+    - name: Build Satis Repo
+      shell: bash
+      run: |
+        docker run \
+          --volume "${PWD}/${{ inputs.satis-config-path }}:/usr/src/satis/satis.json" \
+          --volume "${PWD}/${{ inputs.cache-path }}/:/usr/src/satis/satis-cache/" \
+          --volume "${COMPOSER_HOME:-$HOME/.composer}:/root/.composer/" \
+          --env AWS_ACCESS_KEY_ID=${{ inputs.s3-access-key-id }} \
+          --env AWS_SECRET_ACCESS_KEY=${{ inputs.s3-secret-access-key }} \
+          --env AWS_DEFAULT_REGION=${{ inputs.s3-region }} \
+          --env AWS_BUCKET=${{ inputs.s3-bucket }} \
+          --env AWS_ENDPOINT=${{ inputs.s3-endpoint }} \
+          ghcr.io/kduma-oss/s3-satis:latest build \
+          ${{ inputs.verbosity == 'verbose' && '-v' || '' }} \
+          ${{ inputs.verbosity == 'very_verbose' && '-vvv' || '' }} \
+          ${{ inputs.use-cache == false && '--set-extension=cache:enabled=false' || '--set-extension=cache:path=/usr/src/satis/satis-cache/'}} \
+          ${{ inputs.repository-url != '' && format('--repository-url="{0}"', inputs.repository-url) || '' }}
