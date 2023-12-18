@@ -1,5 +1,8 @@
 name: 'S3-Satis'
 description: 'Build Satis Composer repository on S3'
+branding:
+  icon: upload
+  color: blue
 inputs:
   satis-config-path:
     description: 'Path to Satis repository config file'
